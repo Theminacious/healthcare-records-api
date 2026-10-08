@@ -32,3 +32,34 @@ class HealthcareAPITests(APITestCase):
         response = self.client.get(f"/api/mappings/{patient.id}/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
+
+    def test_patient_and_doctor_crud(self):
+        self.client.post(self.register_url, self.user_data, format="json")
+        self.authenticate()
+        patient_data = {"name": "Sam Carter", "age": 35, "gender": "other", "contact": "555-0100", "address": "1 Main St"}
+        patient = self.client.post("/api/patients/", patient_data, format="json")
+        self.assertEqual(patient.status_code, status.HTTP_201_CREATED)
+        patient_id = patient.data["id"]
+        patient_data["age"] = 36
+        self.assertEqual(self.client.put(f"/api/patients/{patient_id}/", patient_data, format="json").status_code, status.HTTP_200_OK)
+        self.assertEqual(self.client.delete(f"/api/patients/{patient_id}/").status_code, status.HTTP_204_NO_CONTENT)
+
+        doctor = self.client.post("/api/doctors/", {"name": "Dr. Lee", "specialty": "Cardiology", "contact": "555-0110"}, format="json")
+        self.assertEqual(doctor.status_code, status.HTTP_201_CREATED)
+        doctor_id = doctor.data["id"]
+        self.assertEqual(self.client.get(f"/api/doctors/{doctor_id}/").status_code, status.HTTP_200_OK)
+        self.assertEqual(self.client.put(f"/api/doctors/{doctor_id}/", {"name": "Dr. Lee", "specialty": "Neurology", "contact": "555-0110"}, format="json").status_code, status.HTTP_200_OK)
+        self.assertEqual(self.client.delete(f"/api/doctors/{doctor_id}/").status_code, status.HTTP_204_NO_CONTENT)
+
+    def test_protected_endpoints_require_jwt(self):
+        self.assertEqual(self.client.get("/api/patients/").status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(self.client.get("/api/doctors/").status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(self.client.get("/api/mappings/").status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_mapping_delete(self):
+        registration = self.client.post(self.register_url, self.user_data, format="json")
+        self.authenticate()
+        patient = Patient.objects.create(name="Sam Carter", age=35, gender="other", contact="555-0100", address="1 Main St", created_by_id=registration.data["id"])
+        doctor = Doctor.objects.create(name="Dr. Lee", specialty="Cardiology", contact="555-0110")
+        mapping = self.client.post("/api/mappings/", {"patient": patient.id, "doctor": doctor.id}, format="json")
+        self.assertEqual(self.client.delete(f"/api/mappings/{mapping.data['id']}/").status_code, status.HTTP_204_NO_CONTENT)
