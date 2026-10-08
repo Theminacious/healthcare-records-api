@@ -63,3 +63,17 @@ class HealthcareAPITests(APITestCase):
         doctor = Doctor.objects.create(name="Dr. Lee", specialty="Cardiology", contact="555-0110")
         mapping = self.client.post("/api/mappings/", {"patient": patient.id, "doctor": doctor.id}, format="json")
         self.assertEqual(self.client.delete(f"/api/mappings/{mapping.data['id']}/").status_code, status.HTTP_204_NO_CONTENT)
+
+    def test_users_cannot_access_or_map_other_users_patients(self):
+        self.client.post(self.register_url, self.user_data, format="json")
+        self.authenticate()
+        patient_response = self.client.post("/api/patients/", {"name": "Private Patient", "age": 42, "gender": "female", "contact": "555-0120", "address": "2 Main St"}, format="json")
+        patient_id = patient_response.data["id"]
+        doctor = Doctor.objects.create(name="Dr. Patel", specialty="Pediatrics", contact="555-0130")
+
+        other_user = {"name": "Ben Jones", "email": "ben@example.com", "password": "strong-pass-456"}
+        self.client.post(self.register_url, other_user, format="json")
+        self.authenticate(other_user)
+        self.assertEqual(self.client.get(f"/api/patients/{patient_id}/").status_code, status.HTTP_404_NOT_FOUND)
+        mapping = self.client.post("/api/mappings/", {"patient": patient_id, "doctor": doctor.id}, format="json")
+        self.assertEqual(mapping.status_code, status.HTTP_400_BAD_REQUEST)

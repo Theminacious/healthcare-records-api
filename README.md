@@ -1,28 +1,87 @@
-# Healthcare Backend
+# Healthcare Records API
 
-Django REST Framework backend for authentication, patients, doctors, and patient-doctor assignments.
+A Django REST Framework backend for secure healthcare records management.
 
-## Run locally
+## Tech stack
+
+- Django and Django REST Framework
+- PostgreSQL with Django ORM
+- JWT authentication with SimpleJWT
+- Docker Compose for local PostgreSQL
+- `python-dotenv` for environment configuration
+
+## Setup
 
 ```bash
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
 docker compose up -d db
-python manage.py makemigrations core
 python manage.py migrate
 python manage.py runserver
 ```
 
-Set `USE_SQLITE=true` to run checks and tests without PostgreSQL. Normal development and production use PostgreSQL settings from the environment.
+`.env` is loaded automatically and is excluded from git. Set `USE_SQLITE=true` only when running local tests without PostgreSQL.
 
-## Endpoints
+## Authentication
 
-- `POST /api/auth/register/` with `name`, `email`, and `password`
-- `POST /api/auth/login/` with `email` and `password`
-- `POST|GET /api/patients/`, plus `GET|PUT|DELETE /api/patients/<id>/`
-- `POST|GET /api/doctors/`, plus `GET|PUT|DELETE /api/doctors/<id>/`
-- `POST|GET /api/mappings/`, `GET /api/mappings/<id>/`, and `DELETE /api/mappings/<id>/`
+### Register
 
-Send the access token as `Authorization: Bearer <token>`.
+`POST /api/auth/register/`
+
+```json
+{
+	"name": "Ava Carter",
+	"email": "ava@example.com",
+	"password": "strong-pass-123"
+}
+```
+
+### Login
+
+`POST /api/auth/login/`
+
+```json
+{
+	"email": "ava@example.com",
+	"password": "strong-pass-123"
+}
+```
+
+The response contains `access` and `refresh` JWT tokens. Send the access token with `Authorization: Bearer <token>`.
+
+## API endpoints
+
+### Patients
+
+- `POST /api/patients/`
+- `GET /api/patients/`
+- `GET|PUT|DELETE /api/patients/<id>/`
+
+Patients are private to the authenticated user who created them.
+
+### Doctors
+
+- `POST /api/doctors/`
+- `GET /api/doctors/`
+- `GET|PUT|DELETE /api/doctors/<id>/`
+
+### Patient-doctor mappings
+
+- `POST /api/mappings/` with `patient` and `doctor` IDs
+- `GET /api/mappings/`
+- `GET /api/mappings/<patient_id>/`
+- `DELETE /api/mappings/<id>/`
+
+Mappings are unique and can only be created for the authenticated user's patients.
+
+## Testing
+
+Run the complete test suite with SQLite:
+
+```bash
+DJANGO_SECRET_KEY=test-key-at-least-32-characters-long USE_SQLITE=true python manage.py test
+```
+
+The tests cover authentication, permissions, patient and doctor CRUD, mapping creation and deletion, duplicate prevention, and cross-user isolation.
